@@ -86,6 +86,12 @@ const (
 	defaultWatchdog                           = true
 	defaultInvidiousInstance                  = "yewtu.be"
 	defaultWebAuthn                           = false
+	defaultOpenAIAPIBase                      = ""
+	defaultOpenAIProxy                        = ""
+	defaultOpenAIAPIKey                       = ""
+	defaultOpenAIModel                        = "gpt-4o"
+	defaultOpenAIPrompt                       = `Create a summary containing key points of the news in the provided RSS article, in English.
+The summary should be a nested bullet point list (HTML ul only) with a generated title as the parent and a maximum of five bullet points as children.`
 )
 
 var defaultHTTPClientUserAgent = "Mozilla/5.0 (compatible; Miniflux/" + version.Version + "; +https://miniflux.app)"
@@ -171,6 +177,11 @@ type Options struct {
 	invidiousInstance                  string
 	mediaProxyPrivateKey               []byte
 	webAuthn                           bool
+	openAIAPIBase                      string
+	openAIProxy                        string
+	openAIAPIKey                       string
+	openAIModel                        string
+	openAIPrompt                       string
 }
 
 // NewOptions returns Options with default values.
@@ -247,6 +258,11 @@ func NewOptions() *Options {
 		invidiousInstance:                  defaultInvidiousInstance,
 		mediaProxyPrivateKey:               crypto.GenerateRandomBytes(16),
 		webAuthn:                           defaultWebAuthn,
+		openAIAPIBase:                      defaultOpenAIAPIBase,
+		openAIProxy:                        defaultOpenAIProxy,
+		openAIAPIKey:                       defaultOpenAIAPIKey,
+		openAIModel:                        defaultOpenAIModel,
+		openAIPrompt:                       defaultOpenAIPrompt,
 	}
 }
 
@@ -624,6 +640,31 @@ func (o *Options) WebAuthn() bool {
 	return o.webAuthn
 }
 
+// OpenAIAPIBase returns the base URL for the OpenAI API.
+func (o *Options) OpenAIAPIBase() string {
+	return o.openAIAPIBase
+}
+
+// OpenAIProxy returns the proxy URL for the OpenAI API.
+func (o *Options) OpenAIProxy() string {
+	return o.openAIProxy
+}
+
+// OpenAIAPIKey returns the API key for the OpenAI API.
+func (o *Options) OpenAIAPIKey() string {
+	return o.openAIAPIKey
+}
+
+// OpenAIModel returns the model for the OpenAI API.
+func (o *Options) OpenAIModel() string {
+	return o.openAIModel
+}
+
+// OpenAIPrompt returns the prompt for the OpenAI API.
+func (o *Options) OpenAIPrompt() string {
+	return o.openAIPrompt
+}
+
 // FilterEntryMaxAgeDays returns the number of days after which entries should be retained.
 func (o *Options) FilterEntryMaxAgeDays() int {
 	return o.filterEntryMaxAgeDays
@@ -685,6 +726,11 @@ func (o *Options) SortedOptions(redactSecret bool) []*Option {
 		"OAUTH2_PROVIDER":                        o.oauth2Provider,
 		"OAUTH2_REDIRECT_URL":                    o.oauth2RedirectURL,
 		"OAUTH2_USER_CREATION":                   o.oauth2UserCreationAllowed,
+		"OPENAI_API_BASE":                        o.openAIAPIBase,
+		"OPENAI_API_KEY":                         redactSecretValue(o.openAIAPIKey, redactSecret),
+		"OPENAI_MODEL":                           o.openAIModel,
+		"OPENAI_PROMPT":                          o.openAIPrompt,
+		"OPENAI_PROXY":                           o.openAIProxy,
 		"POCKET_CONSUMER_KEY":                    redactSecretValue(o.pocketConsumerKey, redactSecret),
 		"POLLING_FREQUENCY":                      o.pollingFrequency,
 		"FORCE_REFRESH_INTERVAL":                 o.forceRefreshInterval,

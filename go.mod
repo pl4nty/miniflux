@@ -38,6 +38,7 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/sashabaranov/go-openai v1.24.1 // indirect
 	github.com/tdewolff/parse/v2 v2.7.14 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sys v0.20.0 // indirect
