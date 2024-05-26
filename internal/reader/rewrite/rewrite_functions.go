@@ -4,10 +4,12 @@
 package rewrite // import "miniflux.app/v2/internal/reader/rewrite"
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"html"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -19,6 +21,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yuin/goldmark"
 	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
+
+	openai "github.com/sashabaranov/go-openai"
 )
 
 var (
@@ -455,4 +459,60 @@ func removeTables(entryContent string) string {
 
 	output, _ := doc.Find("body").First().Html()
 	return output
+}
+
+func prependAISummary(entryContent string) string {
+	if config.Opts.OpenAIAPIKey() == "" {
+		slog.Error("OpenAI API key is missing, skipping AI summary", slog.String("rule", `add_ai_summary`))
+		return entryContent
+	}
+
+	// using a client rather than RequestBuilder simplifies implementation, and bypasses feed's HTTP config
+	// but we have to write our own logging 
+	slog.Debug("Requesting AI summary", slog.String("rule", `add_ai_summary`), slog.String("model", config.Opts.OpenAIModel()))
+
+	aiConfig := openai.DefaultConfig(config.Opts.OpenAIAPIKey())
+	if config.Opts.OpenAIAPIBase() != "" {
+		aiConfig.BaseURL = config.Opts.OpenAIAPIBase()
+	}
+	if config.Opts.OpenAIProxy() != "" {
+		proxyURL, err := url.Parse(config.Opts.OpenAIProxy())
+		if err != nil {
+			slog.Error(err.Error())
+		}
+		aiConfig.HTTPClient.Transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}
+	}
+	client := openai.NewClientWithConfig(aiConfig)
+
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: config.Opts.OpenAIModel(),
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role: openai.ChatMessageRoleSystem,
+					Content: config.Opts.OpenAIPrompt(),
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: entryContent,
+				},
+			},
+			Temperature: 0.7,
+			MaxTokens:   512,
+		},
+	)
+
+	if err != nil {
+		slog.Error(err.Error())
+		return entryContent
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString(`<p><strong>AI Summary:</strong></p>`)
+	sb.WriteString(resp.Choices[0].Message.Content)
+	sb.WriteString(entryContent)
+	return sb.String()
 }
