@@ -1,7 +1,8 @@
-FROM docker.io/library/golang:bookworm AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:bookworm AS build
 ADD . /go/src/app
 WORKDIR /go/src/app
-RUN make miniflux
+ARG TARGETOS TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make miniflux-no-pie
 
 FROM gcr.io/distroless/base-debian12:nonroot
 

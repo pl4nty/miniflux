@@ -1,8 +1,9 @@
-FROM docker.io/library/golang:alpine3.20 AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:alpine3.20 AS build
 RUN apk add --no-cache build-base git make
 ADD . /go/src/app
 WORKDIR /go/src/app
-RUN make miniflux
+ARG TARGETOS TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make miniflux-no-pie
 
 FROM docker.io/library/alpine:3.20
 
