@@ -97,6 +97,8 @@ func (rule rule) applyRule(entryURL string, entry *model.Entry) {
 		entry.Content = removeTables(entry.Content)
 	case "remove_clickbait":
 		entry.Title = cases.Title(language.English).String(strings.ToLower(entry.Title))
+	case "add_ai_summary":
+		entry.Content = prependAISummary(entry.Content)
 	}
 }
 

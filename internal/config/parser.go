@@ -273,6 +273,16 @@ func (p *Parser) parseLines(lines []string) (err error) {
 			p.opts.invidiousInstance = parseString(value, defaultInvidiousInstance)
 		case "WEBAUTHN":
 			p.opts.webAuthn = parseBool(value, defaultWebAuthn)
+		case "OPENAI_API_BASE":
+			p.opts.openAIAPIBase = parseString(value, defaultOpenAIAPIBase)
+		case "OPENAI_PROXY":
+			p.opts.openAIProxy = parseString(value, defaultOpenAIProxy)
+		case "OPENAI_API_KEY":
+			p.opts.openAIAPIKey = parseString(value, defaultOpenAIAPIKey)
+		case "OPENAI_MODEL":
+			p.opts.openAIModel = parseString(value, defaultOpenAIModel)
+		case "OPENAI_PROMPT":
+			p.opts.openAIPrompt = parseString(value, defaultOpenAIPrompt)
 		}
 	}
 
