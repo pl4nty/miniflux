@@ -28,7 +28,7 @@ jobs:
             type=ref,event=pr
             type=schedule,pattern=nightly
             type=semver,pattern={{raw}}
-            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Generate Distroless Docker tags
         id: docker_distroless_tags
@@ -40,7 +40,7 @@ jobs:
             type=ref,event=pr
             type=schedule,pattern=nightly
             type=semver,pattern={{raw}}
-            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
           flavor: |
             suffix=-distroless,onlatest=true
 
