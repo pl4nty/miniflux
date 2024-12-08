@@ -6,11 +6,13 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.0
 	github.com/abadojack/whatlanggo v1.0.1
 	github.com/andybalholm/brotli v1.1.1
+	github.com/avast/retry-go/v4 v4.6.0
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/go-webauthn/webauthn v0.11.2
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.20.5
+	github.com/sashabaranov/go-openai v1.36.0
 	github.com/tdewolff/minify/v2 v2.21.2
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.30.0

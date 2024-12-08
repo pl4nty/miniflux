@@ -4,13 +4,17 @@
 package rewrite // import "miniflux.app/v2/internal/reader/rewrite"
 
 import (
+	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"miniflux.app/v2/internal/config"
 
@@ -19,6 +23,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yuin/goldmark"
 	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
+
+	"github.com/avast/retry-go/v4"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 var (
@@ -455,4 +462,101 @@ func removeTables(entryContent string) string {
 
 	output, _ := doc.Find("body").First().Html()
 	return output
+}
+
+// https://github.com/avast/retry-go/blob/master/examples/custom_retry_function_test.go
+type RetriableError struct {
+	Err        error
+	RetryAfter time.Duration
+}
+func (e *RetriableError) Error() string {
+	return fmt.Sprintf("%s (retry after %v)", e.Err.Error(), e.RetryAfter)
+}
+var _ error = (*RetriableError)(nil)
+
+func prependAISummary(entryContent string) string {
+	if config.Opts.OpenAIAPIKey() == "" {
+		slog.Error("OpenAI API key is missing, skipping AI summary", slog.String("rule", `add_ai_summary`))
+		return entryContent
+	}
+
+	// using a client rather than RequestBuilder simplifies implementation, and bypasses feed's HTTP config
+	// but we have to write our own logging 
+	slog.Debug("Requesting AI summary", slog.String("rule", `add_ai_summary`), slog.String("model", config.Opts.OpenAIModel()))
+
+	aiConfig := openai.DefaultConfig(config.Opts.OpenAIAPIKey())
+	if config.Opts.OpenAIAPIBase() != "" {
+		aiConfig.BaseURL = config.Opts.OpenAIAPIBase()
+	}
+	if config.Opts.OpenAIProxy() != "" {
+		proxyURL, err := url.Parse(config.Opts.OpenAIProxy())
+		if err != nil {
+			slog.Error(err.Error())
+		}
+		aiConfig.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			},
+		}
+	}
+	client := openai.NewClientWithConfig(aiConfig)
+
+	// client considers retries out-of-scope https://github.com/sashabaranov/go-openai/pull/466
+	resp, err := retry.DoWithData(
+		func() (openai.ChatCompletionResponse, error) {
+			resp, err := client.CreateChatCompletion(
+				context.Background(),
+				openai.ChatCompletionRequest{
+					Model: config.Opts.OpenAIModel(),
+					Messages: []openai.ChatCompletionMessage{
+						{
+							Role: openai.ChatMessageRoleSystem,
+							Content: config.Opts.OpenAIPrompt(),
+						},
+						{
+							Role:    openai.ChatMessageRoleUser,
+							Content: entryContent,
+						},
+					},
+					Temperature: 0.7,
+					MaxTokens:   512,
+				},
+			)
+
+			if err != nil {
+				e := &openai.APIError{}
+				if errors.As(err, &e) && e.HTTPStatusCode == 429 {
+					time, _ := time.ParseDuration(resp.GetRateLimitHeaders().ResetTokens.String())
+					return resp, &RetriableError{
+						Err:        err,
+						RetryAfter: time,
+					}
+				}
+
+				return resp, retry.Unrecoverable(err)
+			}
+
+			return resp, nil
+		},
+		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
+			slog.Debug(err.Error())
+			if retriable, ok := err.(*RetriableError); ok {
+				slog.Debug("Retrying after x-ratelimit-reset-tokens", slog.Duration("retry_after", retriable.RetryAfter))
+				return retriable.RetryAfter
+			}
+			slog.Debug("Unrecoverable error, backing off")
+			return retry.BackOffDelay(n, err, config)
+		}),
+	)
+
+	if err != nil {
+		slog.Error(err.Error())
+		return entryContent
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString(`<p><strong>AI Summary:</strong></p>`)
+	sb.WriteString(resp.Choices[0].Message.Content)
+	sb.WriteString(entryContent)
+	return sb.String()
 }
